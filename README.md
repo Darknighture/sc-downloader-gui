@@ -2,8 +2,8 @@
 
 **简体中文** | [English](README_EN.md)
 
-一个用于从 Supercell 官方服务器直接拉取《皇室战争》《荒野乱斗》游戏资源的图形化下载器：
-通过游戏登录服务器（或 CDN）取到资源清单 `fingerprint.json`，再按需多线程下载，并可选地自动解压压缩资源。
+一个用于从 Supercell 官方服务器直接拉取《皇室战争》《荒野乱斗》等游戏资源的图形化下载器：
+通过游戏登录服务器或 CDN 取到资源清单，再按需多线程下载，并可选地自动解压压缩资源。
 
 > 本项目与 Supercell 无任何关联，未经 Supercell 认可、赞助或特别批准。详见 Supercell Fan Content Policy。
 
@@ -11,7 +11,7 @@
 
 ## 功能特性
 
-- **三种资源获取方式**：最新补丁（走登录服务器握手）、指定 masterhash（直取 CDN）、本地 fingerprint 文件
+- **三种资源获取方式**：最新补丁、指定 masterhash、本地 fingerprint 文件
 - **多线程下载**：线程数 1–10 可调，服务端 502/503/504 自动重试（指数退避，最多 3 次）
 - **可中断、可重入**：Stop 会立刻停住当前下载；再次 Start 只补下缺失文件
 - **断点友好**：已存在的文件自动跳过；若目标补丁目录已存在会询问是否覆盖
@@ -24,16 +24,14 @@
 
 | 游戏 | 登录服务器（TCP 9339） | 资源 CDN |
 | --- | --- | --- |
-| Clash Royale（国际服） | `game.clashroyaleapp.com` | `http://game-assets.clashroyaleapp.com` |
+| Clash Royale（皇室战争国际服） | `game.clashroyaleapp.com` | `http://game-assets.clashroyaleapp.com` |
 | Clash Royale CN（皇室战争国服） | `game.production.clashroyale.cn` | `https://cr-cdn.supercellgame.cn` |
 | Brawl Stars（荒野乱斗国际服） | `game.brawlstarsgame.com` | `https://game-assets.brawlstarsgame.com` |
 | Brawl Stars CN（荒野乱斗国服） | `game.brawlstars.cn` | `https://game-assets.tencent-cloud.com` |
 
-服务器列表来自 `config.json` 的 `servers` 字段，可自行增删。
-
 ## 环境要求
 
-- Python 3.8 – 3.14（3.13 与 3.14 已实测）
+- Python 3.8 – 3.14
 - 可访问对应游戏服务器与 CDN 的网络环境
 
 ## 安装
@@ -77,38 +75,43 @@ python main.py
 - **Settings 页**：设置输出目录与下载线程数（1–10），点 **Save settings** 写回 `config.json`。
 - **状态栏**：显示当前阶段、实时进度（含失败计数）与耗时。
 
-## 配置文件
-
-`config.json`：
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `workers_count` | int | 下载线程数，界面限制 1–10 |
-| `output_path` | string | 输出根目录；相对路径相对**程序所在目录**解析（不是当前工作目录） |
-| `major` / `build` / `minor` | int | 客户端版本号，用于皇室战争握手（见「已知限制」） |
-| `servers` | object | `显示名 -> 登录服务器域名` 映射 |
-
-## 输出结构
-
-```
-<output_path>/
-└── <masterhash 或 fingerprint 的 sha>/
-    ├── fingerprint.json
-    └── ...（与 CDN 上一致的资源目录结构）
-```
-
-## 工作原理
-
-1. 向 `<登录服务器>:9339` 发送 ClientHello（消息 ID `10100`），读取 Loginfailed 回复。
-2. 根据错误码分支：`7` = 正常（含 CDN 地址与 fingerprint）、`8`/`16` = 客户端版本不符、`9` = 版本过高、`10` = 服务器维护。
-3. 解析 fingerprint 中的文件列表，做扩展名过滤与已存在文件去重，投递到下载队列。
-4. 多个 `DownloadWorker` 线程从队列取任务，先把内容写进 `<目标文件>.part`，成功后再改名为正式文件；
-   若开启解压，`.sc` / `.csv` / `.toml` 会先经 `lib/compression.py` 解码
-   （识别 SC v5 头部 + Zstd/LZHAM，其余交给 `sc_compression`）。
-
-> 协议细节：皇室战争使用 VInt 编码，荒野乱斗使用 UInt32 编码，两者在解析 Loginfailed 时走不同分支。
-
 ## 常见问题
+
+**Q：报 `ModuleNotFoundError: No module named 'zstandard'`（或 `PyQt5` / `qdarkstyle`）？**
+依赖没装到当前解释器上。用**运行 main.py 的那个** Python 装一遍即可：
+
+```
+"<你的 python.exe 完整路径>" -m pip install -r requirements.txt
+```
+
+常见坑：给 Python 3.13 装了包却用 3.14 运行；或 IDLE / IDE 的默认解释器与命令行不是同一个。
+现在程序启动时会先做依赖检查，缺什么就直接把这条命令打印出来（并弹窗提示），不再抛原始 traceback。
+
+**Q：装依赖时 pip 报 `ValueError: check_hostname requires server_hostname`？**
+这是 pip 走**代理**时的老 bug（旧版 pip 内置的 urllib3 在 `https://` 代理下会崩），
+和本项目无关。报错栈里会有 `_connect_tls_proxy` / `_ssl_wrap_socket_impl` 这样的帧。
+
+三种解法，任选其一：
+
+```powershell
+# ① 最简单：清掉代理，直接走国内镜像
+Remove-Item Env:HTTP_PROXY, Env:HTTPS_PROXY, Env:ALL_PROXY -ErrorAction SilentlyContinue
+python -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# ② 必须用代理：把代理地址从 https:// 改成 http://
+$env:HTTPS_PROXY = "http://127.0.0.1:7890"   # 换成你实际的地址和端口
+
+# ③ 升级 pip（新版本已修掉这个 bug）
+python -m pip install --upgrade pip
+```
+
+先看看代理到底配在哪了：
+
+```powershell
+Get-ChildItem env: | Where-Object Name -match 'proxy'
+python -m pip config list
+Get-Content "$env:APPDATA\pip\pip.ini" -ErrorAction SilentlyContinue
+```
 
 **Q：报 `Could not connect to xxx:9339`？**
 网络不可达或端口被拦截。检查代理 / 防火墙，必要时确认该服务器是否可以从当前网络直连。
@@ -123,7 +126,7 @@ python main.py
 **Q：解压后文件还是压缩态 / 没有解压？**
 先确认勾选了「Decompress compressed assets」。若仍如此，说明解压失败（控制台会打印
 `[x] Failed to decompress file ...`），此时程序会**原样保存下载的压缩数据**而不是写出坏文件。
-LZHAM 资源在 Windows 上即使没装 `pylzham` 也能解压，详见上文「LZHAM 支持」。
+最常见的原因是资源用了 LZHAM 编码而机器上没有 LZHAM 解码器，详见上文「支持的压缩格式与 LZHAM 支持」。
 
 **Q：提示 "This patch was already downloaded"？**
 目标目录已存在，选择 Yes 覆盖全部文件，或选择 No 只补齐缺失文件。
@@ -140,19 +143,11 @@ LZHAM 资源在 Windows 上即使没装 `pylzham` 也能解压，详见上文「
 - 不支持真正意义上的暂停 / 续传：**Stop** 会终止当前任务，续传靠“重跑时跳过已存在文件”实现。
 - 失败的文件不会自动重试（5xx 除外），也没有失败清单文件，需要看控制台输出。
 
-## 依赖
 
-| 包 | 用途 | 必需 |
-| --- | --- | --- |
-| PyQt5 | 图形界面 | 是 |
-| qdarkstyle | 暗色主题 | 是 |
-| sc-compression | Supercell 资源解压（旧版 SC / LZMA / LZHAM 回退） | 是 |
-| zstandard | Zstd 解压（SC v5 主要载荷） | 是 |
-| pylzham | LZHAM 原生解码器（更快） | 否 |
 
 ## 许可证
 
-[MIT](LICENSE) © 2026 Darknighture
+[GPLv3](LICENSE) © 2026 Darknighture
 
 ---
 
