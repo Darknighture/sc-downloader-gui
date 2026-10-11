@@ -1,0 +1,5 @@
+PyQt5
+qdarkstyle
+sc-compression==0.6.1
+zstandard
+pylzham

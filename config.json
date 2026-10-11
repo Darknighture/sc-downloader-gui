@@ -1,0 +1,13 @@
+{
+    "workers_count": 10,
+    "output_path": "output",
+    "major": 13,
+    "build": 300,
+    "minor": 33,
+    "servers": {
+        "Clash Royale": "game.clashroyaleapp.com",
+        "Clash Royale CN": "game.production.clashroyale.cn",
+        "Brawl Stars": "game.brawlstarsgame.com",
+        "Brawl Stars CN": "game.brawlstars.cn"
+    }
+}
