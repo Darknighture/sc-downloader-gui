@@ -145,35 +145,6 @@ The target directory already exists. Choose Yes to overwrite everything, or No t
 Yes. Stop only ends the current run and everything already downloaded is kept; clicking Start Download  
 again resumes from the gaps.
 
-## Known limitations
-
-- Clash Royale's **Latest Patch is unavailable** (frozen handshake); use Masterhash or Fingerprint file.
-
-
-- The built-in client-version bruteforcer is unreachable from the current UI and has no effect;  
-  `major` / `build` / `minor` in `config.json` do not influence the current download flow.
-- Decompression is **off by default** and must be enabled manually.
-- There is no true pause/resume: **Stop** aborts the current run, and resuming relies on skipping files  
-  that already exist.
-- Failed files are not retried automatically (except HTTP 5xx) and there is no failure report file —  
-  check the console output.
-
-## Dependencies
-
-| Package        | Purpose                                                            | Required      |
-| -------------- | ------------------------------------------------------------------ | ------------- |
-| PyQt5          | GUI                                                                | Yes           |
-| qdarkstyle     | Dark theme                                                         | Yes           |
-| zstandard      | Zstd decompression                                                 | Yes           |
-| pylzham        | Native LZHAM decoder                                               | No, see above |
-| sc-compression | provides `lzham.exe`, used when `pylzham` is not installed (GPLv3) | No, see above |
-
-> Decompression is implemented in `lib/compression.py`, so `sc-compression` is **no longer needed**.  
-> It survives only as an optional LZHAM fallback. Note that it is **GPLv3** (copyleft), so making it a  
-> hard dependency would pull the whole project into a copyleft licence - one more reason it is not in  
-> `requirements.txt`. If you do install it, pin it to `==0.6.1`: 0.6.6 fails to `import` on Windows.  
-> See the comments in `requirements.txt`.
-
 ## License
 
 [MIT](LICENSE) © 2026 Darknighture

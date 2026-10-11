@@ -1,9 +1,9 @@
 {
     "workers_count": 10,
     "output_path": "output",
-    "major": 13,
-    "build": 300,
-    "minor": 33,
+    "major": 16,
+    "build": 402,
+    "minor": 100,
     "servers": {
         "Clash Royale": "game.clashroyaleapp.com",
         "Clash Royale CN": "game.production.clashroyale.cn",

@@ -134,17 +134,6 @@ Get-Content "$env:APPDATA\pip\pip.ini" -ErrorAction SilentlyContinue
 **Q：Stop 之后还能继续吗？**
 能。Stop 只终止本次运行，已下载的文件会保留；再点 Start Download 会从缺口继续。
 
-## 已知限制
-
-- 皇室战争的 **Latest Patch 已不可用**（服务端握手冻结），只能用 Masterhash / Fingerprint file。
-- 「自动探测客户端版本（bruteforce）」在当前界面下走不到，实际不生效；`config.json` 中的
-  `major` / `build` / `minor` 对现有下载流程没有影响。
-- 解压默认**关闭**，需要在界面上手动勾选。
-- 不支持真正意义上的暂停 / 续传：**Stop** 会终止当前任务，续传靠“重跑时跳过已存在文件”实现。
-- 失败的文件不会自动重试（5xx 除外），也没有失败清单文件，需要看控制台输出。
-
-
-
 ## 许可证
 
 [GPLv3](LICENSE) © 2026 Darknighture
