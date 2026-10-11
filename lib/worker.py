@@ -2,6 +2,7 @@ import os
 import time
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
+
 from PyQt5.QtCore import QThread, pyqtSignal
 
 from lib.utils import join_path
@@ -10,14 +11,19 @@ from lib.compression import decompress
 
 class DownloadWorker(QThread):
 
-    file_downloaded = pyqtSignal(bool)
+    #: Emitted once per processed file. ``True`` means the file was written,
+    #: ``False`` means it failed.
+    file_processed = pyqtSignal(bool)
+
+    MAX_RETRIES = 3
+    RETRY_DELAY = 1  # seconds, doubled after every retry
+    RETRYABLE_HTTP_CODES = (502, 503, 504)
 
     def __init__(self, download_queue,
                  masterhash, assets_url,
                  decompress_data, output_dir):
 
-        self.stopped = False
-        self.is_running = True
+        super().__init__()
 
         self.assets_url = assets_url
         self.masterhash = masterhash
@@ -25,74 +31,134 @@ class DownloadWorker(QThread):
         self.download_queue = download_queue
         self.decompress_data = decompress_data
 
-        QThread.__init__(self)
+        #: Set by :meth:`stop`. The worker keeps draining the queue so every
+        #: ``get()`` still gets a matching ``task_done()`` - otherwise
+        #: ``Queue.join()`` would block forever.
+        self.stopped = False
 
     def run(self):
-        while self.is_running:
+        while True:
             filename = self.download_queue.get()
 
-            if filename is not None:
-                file_url = join_path(self.assets_url, self.masterhash, filename)
+            try:
+                if filename is None:
+                    return
 
-                # Retry logic for transient errors
-                max_retries = 3
-                retry_delay = 1  # seconds
+                if self.stopped:
+                    continue
 
-                for attempt in range(max_retries):
-                    try:
-                        file_data = urlopen(file_url, timeout=30)
+                succeeded = False
 
-                        os.makedirs(os.path.dirname(join_path(self.output_dir, filename)), exist_ok=True)
+                try:
+                    succeeded = self.download_file(filename)
+                except Exception as e:
+                    # Nothing may escape run(): PyQt aborts the whole process
+                    # when a QThread override raises.
+                    print('[x] Failed to download {} - Unexpected error: {}'.format(filename, e))
 
-                        with open(join_path(self.output_dir, filename), 'wb') as f:
-                            if self.decompress_data and filename.endswith(('.csv', '.sc', '.toml')):
-                                compressed_data = file_data.read()
+                self.file_processed.emit(succeeded)
+            finally:
+                self.download_queue.task_done()
 
-                                try:
-                                    decompressed = decompress(compressed_data)
+    def download_file(self, filename):
+        file_url = join_path(self.assets_url, self.masterhash, filename)
+        destination = join_path(self.output_dir, filename)
 
-                                except:
-                                    print('[x] Failed to decompress file {}'.format(filename))
-                                    decompressed = compressed_data
+        retry_delay = self.RETRY_DELAY
 
-                                f.write(decompressed)
+        for attempt in range(1, self.MAX_RETRIES + 1):
+            try:
+                response = urlopen(file_url, timeout=30)
 
-                            else:
-                                f.write(file_data.read())
+                try:
+                    content = self.read_content(response, filename)
+                finally:
+                    response.close()
 
-                            f.close()
+                write_file(destination, content)
+                return True
 
-                        self.file_downloaded.emit(self.is_running)
-                        break  # Success, exit retry loop
+            except HTTPError as e:
+                if e.code in self.RETRYABLE_HTTP_CODES and attempt < self.MAX_RETRIES:
+                    print('[!] HTTP {} for {}, retrying in {}s (attempt {}/{})'.format(
+                        e.code, filename, retry_delay, attempt, self.MAX_RETRIES))
+                    if self.sleep(retry_delay):
+                        retry_delay *= 2
+                else:
+                    print('[x] Failed to download {} - HTTP Error {}: {}'.format(
+                        filename, e.code, e.reason))
+                    return False
 
-                    except HTTPError as e:
-                        # Retry on server errors (502, 503, 504)
-                        if e.code in [502, 503, 504] and attempt < max_retries - 1:
-                            print('[!] HTTP {} for {}, retrying in {}s (attempt {}/{})'.format(
-                                e.code, filename, retry_delay, attempt + 1, max_retries))
-                            time.sleep(retry_delay)
-                            retry_delay *= 2  # Exponential backoff
-                        else:
-                            print('[x] Failed to download {} - HTTP Error {}: {}'.format(
-                                filename, e.code, e.reason))
-                            break
+            except URLError as e:
+                if attempt < self.MAX_RETRIES:
+                    print('[!] Network error for {}, retrying in {}s (attempt {}/{})'.format(
+                        filename, retry_delay, attempt, self.MAX_RETRIES))
+                    if self.sleep(retry_delay):
+                        retry_delay *= 2
+                else:
+                    print('[x] Failed to download {} - Network Error: {}'.format(
+                        filename, e.reason))
+                    return False
 
-                    except URLError as e:
-                        if attempt < max_retries - 1:
-                            print('[!] Network error for {}, retrying in {}s (attempt {}/{})'.format(
-                                filename, retry_delay, attempt + 1, max_retries))
-                            time.sleep(retry_delay)
-                            retry_delay *= 2
-                        else:
-                            print('[x] Failed to download {} - Network Error: {}'.format(filename, e.reason))
-                            break
+            except Exception as e:
+                print('[x] Failed to download {} - Unexpected error: {}'.format(filename, e))
+                return False
 
-                    except Exception as e:
-                        print('[x] Failed to download {} - Unexpected error: {}'.format(filename, str(e)))
-                        break
+        return False
 
-            self.download_queue.task_done()
+    def read_content(self, response, filename):
+        if self.decompress_data and filename.endswith(('.csv', '.sc', '.toml')):
+            compressed_data = response.read()
+
+            try:
+                return decompress(compressed_data)
+            except Exception as e:
+                print('[x] Failed to decompress {} ({}), keeping the compressed data'.format(
+                    filename, e))
+                return compressed_data
+
+        return response.read()
+
+    def sleep(self, seconds):
+        """Sleep, unless the worker was asked to stop. Returns False on stop."""
+        if self.stopped:
+            return False
+
+        time.sleep(seconds)
+        return not self.stopped
 
     def stop(self):
-        self.download_queue.put(None)
-        self.is_running = False
+        """Ask this worker to stop.
+
+        It finishes the file it is currently working on and then discards the
+        remaining queue entries (still acknowledging them), so the launcher's
+        ``Queue.join()`` can return.
+        """
+        self.stopped = True
+
+
+def write_file(destination, content):
+    """Write ``content`` to ``destination`` without leaving partial files behind."""
+    directory = os.path.dirname(destination)
+
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+
+    temp_path = destination + '.part'
+
+    try:
+        with open(temp_path, 'wb') as f:
+            f.write(content)
+
+        os.replace(temp_path, destination)
+
+    except BaseException:
+        remove_quietly(temp_path)
+        raise
+
+
+def remove_quietly(path):
+    try:
+        os.remove(path)
+    except OSError:
+        pass

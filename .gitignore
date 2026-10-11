@@ -2,5 +2,9 @@
 /assets/
 /patches/
 /dumps/
+/output/
 /.vscode/
+/.venv/
 __pycache__
+*.pyc
+/.workbuddy/

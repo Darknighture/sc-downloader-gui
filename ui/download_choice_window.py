@@ -59,8 +59,6 @@ class DownloadChoiceWindow(QMainWindow):
     def start_download(self):
         self.download_started = True
 
-        self.parent().stop_button.setEnabled(True)
-        self.parent().start_button.setEnabled(False)
         self.close()
 
         choice = self.download_combo_box.currentText()
@@ -77,7 +75,12 @@ class DownloadChoiceWindow(QMainWindow):
                 if widget.isChecked():
                     wanted_extensions.append(widget.text())
 
+        # Enable Stop only once the launcher actually exists, so clicking it
+        # can never hit a missing `worker_launcher`.
         self.parent().start_download(tuple(wanted_extensions))
+
+        self.parent().start_button.setEnabled(False)
+        self.parent().stop_button.setEnabled(True)
 
     def closeEvent(self, _):
         if not self.download_started:

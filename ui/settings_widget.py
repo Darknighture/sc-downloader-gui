@@ -6,12 +6,14 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QSpinBox,
                              QLineEdit, QHBoxLayout, QVBoxLayout,
                              QPushButton, QFileDialog)
 
+from lib.utils import BASE_DIR, resource_path
+
 
 class SettingsWidget(QWidget):
-    def __init__(self, parent, config):
+    def __init__(self, main_window, config):
         super().__init__()
 
-        self.parent = parent
+        self.main_window = main_window
         self.config = config
 
         self.init_ui()
@@ -25,14 +27,10 @@ class SettingsWidget(QWidget):
         self.folder_path_input = QLineEdit()
         self.folder_path_input.setEnabled(False)
 
-        if os.path.isabs(self.config['output_path']):
-            self.folder_path_input.setText(self.config['output_path'])
-
-        else:
-            self.folder_path_input.setText(os.path.abspath(self.config['output_path']))
+        self.folder_path_input.setText(self.resolve_output_path())
 
         self.browse_folder_button = QPushButton('', self)
-        self.browse_folder_button.setIcon(QIcon('ui/assets/browse.png'))
+        self.browse_folder_button.setIcon(QIcon(resource_path('ui', 'assets', 'browse.png')))
         self.browse_folder_button.setIconSize(QSize(17, 17))
         self.browse_folder_button.clicked.connect(self.browse_folder)
 
@@ -44,10 +42,10 @@ class SettingsWidget(QWidget):
         self.workers_spinbox = QSpinBox()
 
         self.workers_spinbox.setRange(1, 10)
-        self.workers_spinbox.setValue(max(min(self.config['workers_count'], 10), 1))
+        self.workers_spinbox.setValue(max(min(self.config.get('workers_count', 4), 10), 1))
 
         self.save_settings_button = QPushButton('Save settings', self)
-        self.save_settings_button.setIcon(QIcon('ui/assets/save.png'))
+        self.save_settings_button.setIcon(QIcon(resource_path('ui', 'assets', 'save.png')))
         self.save_settings_button.setIconSize(QSize(17, 17))
         self.save_settings_button.clicked.connect(self.save_settings)
 
@@ -59,12 +57,35 @@ class SettingsWidget(QWidget):
 
         self.setLayout(self.main_layout)
 
+    def resolve_output_path(self):
+        """Absolute output directory, resolved against the app directory.
+
+        Relative ``output_path`` values used to depend on the process working
+        directory, which made the assets land somewhere unexpected.
+        """
+        output_path = self.config.get('output_path') or 'output'
+
+        if not os.path.isabs(output_path):
+            output_path = os.path.join(BASE_DIR, output_path)
+
+        return os.path.normpath(output_path)
+
+    def output_path(self):
+        return self.folder_path_input.text() or self.resolve_output_path()
+
     def browse_folder(self):
-        directory = QFileDialog.getExistingDirectory(self, 'Select an output directory')
+        directory = QFileDialog.getExistingDirectory(
+            self, 'Select an output directory', self.output_path())
+
+        # Cancelling the dialog must keep the previous path, never clear it.
+        if not directory:
+            return
+
         self.config['output_path'] = directory
         self.folder_path_input.setText(directory)
 
     def save_settings(self):
         self.config['workers_count'] = self.workers_spinbox.value()
+        self.config['output_path'] = self.output_path()
 
-        self.parent.save_config()
+        self.main_window.save_config()

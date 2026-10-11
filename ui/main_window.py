@@ -5,6 +5,7 @@ from PyQt5.QtCore import QSize
 from PyQt5.QtWidgets import (QWidget, QLabel, QToolBar, QVBoxLayout,
                              QMainWindow, QStackedWidget, QToolButton)
 
+from lib.utils import CONFIG_PATH, resource_path
 from ui.download_widget import DownloadWidget
 from ui.settings_widget import SettingsWidget
 
@@ -64,7 +65,7 @@ class MainWindow(QMainWindow):
         self.status_bar.setStyleSheet('QStatusBar::item {border: None;}')
 
         self.loading_movie = QLabel()
-        self.loading_movie_video = QMovie('ui/assets/loading.gif')
+        self.loading_movie_video = QMovie(resource_path('ui', 'assets', 'loading.gif'))
         self.loading_movie_video.setScaledSize(QSize(17, 17))
 
         self.loading_movie.setMovie(self.loading_movie_video)
@@ -94,5 +95,14 @@ class MainWindow(QMainWindow):
         self.hide_loading()
 
     def save_config(self):
-        with open('config.json', 'w') as f:
+        with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
             f.write(json.dumps(self.config, indent=4))
+
+    def closeEvent(self, event):
+        """Shut the download threads down before Qt tears the window apart.
+
+        Destroying a running QThread aborts the process, so give the workers a
+        chance to finish what they are doing.
+        """
+        self.download_widget.shutdown_downloads()
+        event.accept()

@@ -2,4 +2,14 @@ PyQt5
 qdarkstyle
 sc-compression==0.6.1
 zstandard
-pylzham
+
+# Optional: native LZHAM decoder.
+#
+# There are no prebuilt wheels for Python 3.11+, so installing it on a modern
+# interpreter means compiling from source with MSVC Build Tools. The app works
+# without it: `lib/compression.py` falls back to the lzham decoder bundled
+# inside sc-compression, so LZHAM assets are decompressed either way.
+#
+# Want the native module anyway? See "LZHAM support" in the README, or run:
+#   pip install pylzham
+pylzham; python_version < "3.11"
