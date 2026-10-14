@@ -19,7 +19,7 @@ compressed assets on the fly.
 - **Interruptible and re-entrant**: Stop halts the current run immediately; starting again only fetches what is missing
 - **Resume friendly**: existing files are skipped; if the target patch directory already exists you are asked whether to overwrite
 - **Filter by file type**: pick only the extensions you need (`.csv`, `.sc`, `.png`, …) before downloading
-- **Optional auto-decompression**: `.sc`, `.csv` and `.toml`, supporting Zstd, LZHAM, LZMA, SC v5 and legacy SC formats
+- **Optional auto-decompression**: `.sc`, `.csv` and `.toml`, supporting Zstd, LZMA, SC v5 and legacy SC formats
 - **Atomic writes**: files are written to `.part` and renamed on success, so an interrupted run never leaves half a file
 - **Dark theme UI**: fixed-size QDarkStyle window
 
