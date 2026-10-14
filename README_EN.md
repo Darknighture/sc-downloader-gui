@@ -80,74 +80,20 @@ python main.py
 - **Settings tab** – output folder and worker count (1–10); click **Save settings** to write `config.json`.
 - **Status bar** – current stage, live progress (including a failure count) and elapsed time.
 
-## Troubleshooting
+## Acknowledgements
 
-**`ModuleNotFoundError: No module named 'zstandard'` (or `PyQt5` / `qdarkstyle`)**  
-The dependencies are not installed for the interpreter you are running. Install them with **the same**  
-Python that runs `main.py`:
+This project stands on two open-source projects:
 
-```
-"<full path to your python.exe>" -m pip install -r requirements.txt
-```
-
-A common trap: packages installed for Python 3.13 but the script launched with 3.14, or IDLE / your IDE  
-defaulting to a different interpreter than your terminal. The app now checks its dependencies at startup  
-and prints that exact command (plus a dialog) instead of a raw traceback.
-
-**`ValueError: check_hostname requires server_hostname` while installing dependencies**  
-This is an old pip bug that only shows up when pip goes through a **proxy** (the urllib3 vendored into  
-older pip versions breaks on `https://` proxy URLs). It has nothing to do with this project — look for  
-`_connect_tls_proxy` / `_ssl_wrap_socket_impl` frames in the traceback.
-
-Pick whichever fix fits:
-
-```powershell
-# 1. Easiest: drop the proxy and use a mirror instead
-Remove-Item Env:HTTP_PROXY, Env:HTTPS_PROXY, Env:ALL_PROXY -ErrorAction SilentlyContinue
-python -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-
-# 2. If you need the proxy: change its scheme from https:// to http://
-$env:HTTPS_PROXY = "http://127.0.0.1:7890"   # use your real host and port
-
-# 3. Upgrade pip - the bug is fixed in current releases
-python -m pip install --upgrade pip
-```
-
-To see where the proxy is configured:
-
-```powershell
-Get-ChildItem env: | Where-Object Name -match 'proxy'
-python -m pip config list
-Get-Content "$env:APPDATA\pip\pip.ini" -ErrorAction SilentlyContinue
-```
-
-**`Could not connect to xxx:9339`**  
-The host is unreachable or the port is blocked. Check proxy/firewall settings and whether the server is  
-reachable from your network.
-
-**`Server requires a different version`**  
-The Brawl Stars backend expects a newer client version; adjust `major` / `build` / `minor` in `config.json`.
-
-**The progress bar stops below 100%**  
-Some files failed — the status bar shows `N failed` and the console prints `[x] Failed to download ...`.  
-Only HTTP 5xx responses are retried (3 attempts); click Start Download again to fetch the missing files.
-
-**Assets are still compressed**  
-First make sure "Decompress compressed assets" is checked. If they still aren't decompressed,  
-decompression failed (the console prints `[x] Failed to decompress file ...`) and the raw compressed data  
-is saved as-is instead of a corrupt file. The most common cause is an LZHAM payload with no LZHAM  
-decoder available on the machine - see "Supported compression formats and LZHAM support" above.
-
-**"This patch was already downloaded"**  
-The target directory already exists. Choose Yes to overwrite everything, or No to only fill in missing files.
-
-**Can I continue after pressing Stop?**  
-Yes. Stop only ends the current run and everything already downloaded is kept; clicking Start Download  
-again resumes from the gaps.
+- [**Galaxy1036/SC-Assets-Downloader-GUI**](https://github.com/Galaxy1036/SC-Assets-Downloader-GUI) — where this
+  project started. The GUI, the download queue and worker-thread structure, and the foundation modules
+  (`lib/reader.py`, `lib/writer.py`, `lib/utils.py`) all come from it.
+- [**Shei-Bi/even-better-sc-downloader**](https://github.com/Shei-Bi/even-better-sc-downloader) — a reference for
+  the login handshake and manifest retrieval: ClientHello message `10100`, the `major` / `build` / `minor` wire
+  order, and how the Loginfailed response is parsed. Multi-server support was inspired by it as well.
 
 ## License
 
-[MIT](LICENSE) © 2026 Darknighture
+[GPLv3](LICENSE) © 2026 Darknighture
 
 ---
 

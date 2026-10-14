@@ -95,8 +95,8 @@ def _decompress_lzham(payload):
         raise ValueError('the bundled lzham decoder failed')
 
     raise ValueError(
-        'no LZHAM decoder available - install pylzham, or the optional '
-        'sc-compression package (see README, "LZHAM support")')
+        'no LZHAM decoder available - LZHAM is not installed by default, '
+        'run "pip install pylzham" to decode this file')
 
 
 def _decompress_lzma(data):

@@ -1,20 +1,3 @@
 PyQt5
 qdarkstyle
 zstandard
-
-# Optional LZHAM decoder: only installed where a prebuilt wheel exists.
-# PyPI never shipped a pylzham wheel for Python 3.11+, so on newer
-# interpreters it would have to be compiled with MSVC Build Tools.
-pylzham; python_version < "3.11"
-
-# Optional extras, deliberately NOT installed by this file because the app
-# works without them:
-#
-#   sc-compression  ships a prebuilt lzham.exe that lib/compression.py uses
-#                   automatically when pylzham is missing, so LZHAM payloads
-#                   decode on Windows with no compiler.
-#                       pip install sc-compression
-#
-# Without either of them, everything except LZHAM payloads still decompresses;
-# lib/compression.py reports the missing decoder instead of writing a
-# truncated file.

@@ -75,64 +75,16 @@ python main.py
 - **Settings 页**：设置输出目录与下载线程数（1–10），点 **Save settings** 写回 `config.json`。
 - **状态栏**：显示当前阶段、实时进度（含失败计数）与耗时。
 
-## 常见问题
+## 致谢
 
-**Q：报 `ModuleNotFoundError: No module named 'zstandard'`（或 `PyQt5` / `qdarkstyle`）？**
-依赖没装到当前解释器上。用**运行 main.py 的那个** Python 装一遍即可：
+本项目站在两个开源项目的肩膀上：
 
-```
-"<你的 python.exe 完整路径>" -m pip install -r requirements.txt
-```
-
-常见坑：给 Python 3.13 装了包却用 3.14 运行；或 IDLE / IDE 的默认解释器与命令行不是同一个。
-现在程序启动时会先做依赖检查，缺什么就直接把这条命令打印出来（并弹窗提示），不再抛原始 traceback。
-
-**Q：装依赖时 pip 报 `ValueError: check_hostname requires server_hostname`？**
-这是 pip 走**代理**时的老 bug（旧版 pip 内置的 urllib3 在 `https://` 代理下会崩），
-和本项目无关。报错栈里会有 `_connect_tls_proxy` / `_ssl_wrap_socket_impl` 这样的帧。
-
-三种解法，任选其一：
-
-```powershell
-# ① 最简单：清掉代理，直接走国内镜像
-Remove-Item Env:HTTP_PROXY, Env:HTTPS_PROXY, Env:ALL_PROXY -ErrorAction SilentlyContinue
-python -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-
-# ② 必须用代理：把代理地址从 https:// 改成 http://
-$env:HTTPS_PROXY = "http://127.0.0.1:7890"   # 换成你实际的地址和端口
-
-# ③ 升级 pip（新版本已修掉这个 bug）
-python -m pip install --upgrade pip
-```
-
-先看看代理到底配在哪了：
-
-```powershell
-Get-ChildItem env: | Where-Object Name -match 'proxy'
-python -m pip config list
-Get-Content "$env:APPDATA\pip\pip.ini" -ErrorAction SilentlyContinue
-```
-
-**Q：报 `Could not connect to xxx:9339`？**
-网络不可达或端口被拦截。检查代理 / 防火墙，必要时确认该服务器是否可以从当前网络直连。
-
-**Q：报 `Server requires a different version`？**
-荒野乱斗服务端要求更高的客户端版本，需调整 `config.json` 中的 `major` / `build` / `minor`。
-
-**Q：进度条停在 100% 以下就结束了？**
-部分文件下载失败，状态栏会显示 `N failed`，控制台同时打印 `[x] Failed to download ...`。
-除 5xx 会重试 3 次外，其余错误不重试，重新点击 Start Download 即可补下缺失文件。
-
-**Q：解压后文件还是压缩态 / 没有解压？**
-先确认勾选了「Decompress compressed assets」。若仍如此，说明解压失败（控制台会打印
-`[x] Failed to decompress file ...`），此时程序会**原样保存下载的压缩数据**而不是写出坏文件。
-最常见的原因是资源用了 LZHAM 编码而机器上没有 LZHAM 解码器，详见上文「支持的压缩格式与 LZHAM 支持」。
-
-**Q：提示 "This patch was already downloaded"？**
-目标目录已存在，选择 Yes 覆盖全部文件，或选择 No 只补齐缺失文件。
-
-**Q：Stop 之后还能继续吗？**
-能。Stop 只终止本次运行，已下载的文件会保留；再点 Start Download 会从缺口继续。
+- [**Galaxy1036/SC-Assets-Downloader-GUI**](https://github.com/Galaxy1036/SC-Assets-Downloader-GUI) —— 本项目的起点。
+  图形界面、下载队列与多线程工作线程的结构，以及 `lib/reader.py`、`lib/writer.py`、`lib/utils.py`
+  等基础模块都源自它。
+- [**Shei-Bi/even-better-sc-downloader**](https://github.com/Shei-Bi/even-better-sc-downloader) ——
+  登录握手与资源清单获取流程的参考实现，包括 ClientHello 消息 `10100`、`major` / `build` / `minor`
+  的报文写入顺序，以及 Loginfailed 报文的解析方式；多游戏服务器支持也参考了它。
 
 ## 许可证
 
